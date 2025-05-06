@@ -1,14 +1,27 @@
 <?php
-// Veritabanı bağlantı bilgileri
-$host = 'localhost';
-$dbname = 'websitem';
-$username = 'root';
-$password = '';
+class Database {
+    private $host = "localhost";
+    private $db_name = "aof_rental";
+    private $username = "root";
+    private $password = "";
+    public $conn;
 
-try {
-    $db = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch(PDOException $e) {
-    echo "Bağlantı hatası: " . $e->getMessage();
-    die();
+    public function getConnection() {
+        $this->conn = null;
+
+        try {
+            $this->conn = new PDO(
+                "mysql:host=" . $this->host . ";dbname=" . $this->db_name,
+                $this->username,
+                $this->password
+            );
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $this->conn->exec("set names utf8");
+        } catch(PDOException $e) {
+            echo "Veritabanı bağlantı hatası: " . $e->getMessage();
+        }
+
+        return $this->conn;
+    }
 }
+?> 
