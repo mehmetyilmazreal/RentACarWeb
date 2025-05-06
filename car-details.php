@@ -32,7 +32,11 @@
                             <span class="h2 mb-0">850₺</span>
                             <small class="text-muted">/gün</small>
                         </div>
-                        <a href="#booking" class="btn btn-custom btn-lg w-100 mt-3">Hemen Kirala</a>
+                        <?php if (isset($_SESSION['user_id'])): ?>
+                            <a href="#booking" class="btn btn-custom btn-lg w-100 mt-3">Hemen Kirala</a>
+                        <?php else: ?>
+                            <a href="login.php" class="btn btn-outline-custom btn-lg w-100 mt-3">Kiralamak için Giriş Yapın</a>
+                        <?php endif; ?>
                     </div>
                 </div>
 
