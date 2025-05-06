@@ -100,9 +100,32 @@ $transmission_types = [
                     <div class="col-12">
                         <div class="card">
                             <div class="card-body">
-                                <img src="assets/images/cars/<?php echo htmlspecialchars($car['image']); ?>" 
-                                     alt="<?php echo htmlspecialchars($car['brand'] . ' ' . $car['model']); ?>" 
-                                     class="img-fluid rounded-3">
+                                <div class="row">
+                                    <!-- 360° Video -->
+                                    <?php if ($car['video_360']): ?>
+                                    <div class="col-md-6 mb-4 mb-md-0">
+                                        <div class="ratio ratio-16x9">
+                                            <video id="video360" class="rounded-3" controls>
+                                                <source src="assets/videos/360/<?php echo htmlspecialchars($car['video_360']); ?>" type="video/mp4">
+                                                Tarayıcınız video oynatmayı desteklemiyor.
+                                            </video>
+                                        </div>
+                                        <div class="text-center mt-2">
+                                            <small class="text-muted">
+                                                <i class="fas fa-video me-1"></i>
+                                                360° Video
+                                            </small>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
+                                    
+                                    <!-- Araç Resmi -->
+                                    <div class="<?php echo $car['video_360'] ? 'col-md-6' : 'col-12'; ?>">
+                                        <img src="assets/images/cars/<?php echo htmlspecialchars($car['image']); ?>" 
+                                             alt="<?php echo htmlspecialchars($car['brand'] . ' ' . $car['model']); ?>" 
+                                             class="img-fluid rounded-3">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -284,9 +307,113 @@ $transmission_types = [
                         </div>
                     </div>
                 </div>
+
+                <!-- Yorumlar Bölümü -->
+                <div class="row mt-5">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h3 class="card-title h4 mb-4">Değerlendirmeler ve Yorumlar</h3>
+                                
+                                <?php if (isset($_SESSION['user_id'])): ?>
+                                    <!-- Yorum Formu -->
+                                    <form action="api/add_comment.php" method="POST" class="mb-4">
+                                        <input type="hidden" name="car_id" value="<?php echo $car_id; ?>">
+                                        <div class="mb-3">
+                                            <label class="form-label">Puanınız</label>
+                                            <div class="rating">
+                                                <?php for($i = 5; $i >= 1; $i--): ?>
+                                                    <input type="radio" name="rating" value="<?php echo $i; ?>" id="star<?php echo $i; ?>" required>
+                                                    <label for="star<?php echo $i; ?>"><i class="fas fa-star"></i></label>
+                                                <?php endfor; ?>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="comment" class="form-label">Yorumunuz</label>
+                                            <textarea class="form-control" id="comment" name="comment" rows="3" required></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-custom">Yorum Yap</button>
+                                    </form>
+                                <?php else: ?>
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Yorum yapabilmek için lütfen <a href="login.php">giriş yapın</a>.
+                                    </div>
+                                <?php endif; ?>
+
+                                <!-- Mevcut Yorumlar -->
+                                <?php
+                                $comments_stmt = $db->prepare("
+                                    SELECT c.*, u.name as username
+                                    FROM car_comments c
+                                    JOIN users u ON c.user_id = u.id
+                                    WHERE c.car_id = ?
+                                    ORDER BY c.created_at DESC
+                                ");
+                                $comments_stmt->execute([$car_id]);
+                                $comments = $comments_stmt->fetchAll();
+
+                                if (count($comments) > 0):
+                                ?>
+                                    <div class="comments-list">
+                                        <?php foreach ($comments as $comment): ?>
+                                            <div class="comment-item border-bottom py-3">
+                                                <div class="d-flex align-items-center mb-2">
+                                                    <img src="assets/images/default-profile.png" 
+                                                         alt="<?php echo htmlspecialchars($comment['username']); ?>" 
+                                                         class="rounded-circle me-2" 
+                                                         style="width: 40px; height: 40px; object-fit: cover;">
+                                                    <div>
+                                                        <h6 class="mb-0"><?php echo htmlspecialchars($comment['username']); ?></h6>
+                                                        <div class="text-warning">
+                                                            <?php for($i = 1; $i <= 5; $i++): ?>
+                                                                <i class="fas fa-star<?php echo $i <= $comment['rating'] ? '' : '-o'; ?>"></i>
+                                                            <?php endfor; ?>
+                                                        </div>
+                                                    </div>
+                                                    <small class="text-muted ms-auto">
+                                                        <?php echo date('d.m.Y H:i', strtotime($comment['created_at'])); ?>
+                                                    </small>
+                                                </div>
+                                                <p class="mb-0"><?php echo nl2br(htmlspecialchars($comment['comment'])); ?></p>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-comments fa-2x mb-3"></i>
+                                        <p>Henüz yorum yapılmamış. İlk yorumu siz yapın!</p>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
     </main>
+
+    <style>
+        .rating {
+            display: flex;
+            flex-direction: row-reverse;
+            justify-content: flex-end;
+        }
+        .rating input {
+            display: none;
+        }
+        .rating label {
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: #ddd;
+            padding: 0 0.1em;
+        }
+        .rating input:checked ~ label,
+        .rating label:hover,
+        .rating label:hover ~ label {
+            color: #ffc107;
+        }
+    </style>
 
     <?php include 'includes/footer.php'; ?>
 
