@@ -9,108 +9,169 @@ require_once '../includes/auth_check.php';
 // JSON yanıt için header ayarla
 header('Content-Type: application/json');
 
+// Admin kontrolü
+if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'corporate') {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Yetkisiz erişim'
+    ]);
+    exit;
+}
+
 // Kiralama ID'sini al
 $rental_id = $_GET['id'] ?? null;
 
 if (!$rental_id) {
     echo json_encode([
         'success' => false,
-        'message' => 'Kiralama ID\'si gerekli.'
+        'message' => 'Kiralama ID\'si gerekli'
     ]);
     exit;
 }
 
 try {
     // Kiralama detaylarını getir
-    $rental = query("
+    $stmt = $db->prepare("
         SELECT r.*, 
-               u.name as user_name, 
-               u.email as user_email,
-               u.phone as user_phone,
-               c.brand,
-               c.model,
-               c.plate,
-               c.year as car_year
+               u.name as user_name, u.email as user_email, u.phone as user_phone,
+               c.brand, c.model, c.plate, c.image as car_image,
+               p.status as payment_status, p.payment_method, p.transaction_id
         FROM rentals r
         JOIN users u ON r.user_id = u.id
         JOIN cars c ON r.car_id = c.id
+        LEFT JOIN payments p ON r.id = p.rental_id
         WHERE r.id = ?
-    ", [$rental_id])->fetch();
+    ");
+    
+    $stmt->execute([$rental_id]);
+    $rental = $stmt->fetch();
 
     if (!$rental) {
         echo json_encode([
             'success' => false,
-            'message' => 'Kiralama bulunamadı.'
+            'message' => 'Kiralama bulunamadı'
         ]);
         exit;
     }
 
-    // Ekstra hizmetleri getir
-    $extra_services = query("
-        SELECT es.name, es.price
-        FROM rental_extra_services res
-        JOIN extra_services es ON res.extra_service_id = es.id
-        WHERE res.rental_id = ?
-    ", [$rental_id])->fetchAll();
+    // Durum metinlerini tanımla
+    $statusMap = [
+        'pending' => [
+            'class' => 'warning',
+            'text' => 'Beklemede'
+        ],
+        'confirmed' => [
+            'class' => 'success',
+            'text' => 'Onaylandı'
+        ],
+        'completed' => [
+            'class' => 'info',
+            'text' => 'Tamamlandı'
+        ],
+        'cancelled' => [
+            'class' => 'danger',
+            'text' => 'İptal Edildi'
+        ]
+    ];
+
+    $currentStatus = isset($rental['status']) && array_key_exists($rental['status'], $statusMap) 
+        ? $rental['status'] 
+        : 'pending';
+    
+    $statusClass = $statusMap[$currentStatus]['class'];
+    $statusText = $statusMap[$currentStatus]['text'];
 
     // HTML içeriğini oluştur
-    $html = '
-    <div class="row g-3">
-        <div class="col-md-6">
-            <h6>Müşteri Bilgileri</h6>
-            <p>
-                <strong>Ad Soyad:</strong> ' . htmlspecialchars($rental['user_name']) . '<br>
-                <strong>E-posta:</strong> ' . htmlspecialchars($rental['user_email']) . '<br>
-                <strong>Telefon:</strong> ' . htmlspecialchars($rental['user_phone']) . '
-            </p>
+    $html = "
+    <div class='rental-details'>
+        <div class='row'>
+            <div class='col-md-6'>
+                <h6 class='mb-3'>Kiralama Bilgileri</h6>
+                <table class='table table-sm'>
+                    <tr>
+                        <th>Kiralama ID:</th>
+                        <td>#{$rental['id']}</td>
+                    </tr>
+                    <tr>
+                        <th>Durum:</th>
+                        <td><span class='badge bg-{$statusClass}'>{$statusText}</span></td>
+                    </tr>
+                    <tr>
+                        <th>Başlangıç:</th>
+                        <td>" . date('d.m.Y', strtotime($rental['start_date'])) . "</td>
+                    </tr>
+                    <tr>
+                        <th>Bitiş:</th>
+                        <td>" . date('d.m.Y', strtotime($rental['end_date'])) . "</td>
+                    </tr>
+                    <tr>
+                        <th>Toplam Tutar:</th>
+                        <td>₺" . number_format($rental['total_price'], 2) . "</td>
+                    </tr>
+                    <tr>
+                        <th>Oluşturulma:</th>
+                        <td>" . date('d.m.Y H:i', strtotime($rental['created_at'])) . "</td>
+                    </tr>
+                </table>
+            </div>
+            <div class='col-md-6'>
+                <h6 class='mb-3'>Araç Bilgileri</h6>
+                <div class='car-info'>
+                    <img src='../../assets/images/cars/{$rental['car_image']}' class='img-fluid mb-2' style='max-height: 150px;'>
+                    <table class='table table-sm'>
+                        <tr>
+                            <th>Marka:</th>
+                            <td>{$rental['brand']}</td>
+                        </tr>
+                        <tr>
+                            <th>Model:</th>
+                            <td>{$rental['model']}</td>
+                        </tr>
+                        <tr>
+                            <th>Plaka:</th>
+                            <td>{$rental['plate']}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
         </div>
-        <div class="col-md-6">
-            <h6>Araç Bilgileri</h6>
-            <p>
-                <strong>Marka:</strong> ' . htmlspecialchars($rental['brand']) . '<br>
-                <strong>Model:</strong> ' . htmlspecialchars($rental['model']) . '<br>
-                <strong>Plaka:</strong> ' . htmlspecialchars($rental['plate']) . '<br>
-                <strong>Yıl:</strong> ' . htmlspecialchars($rental['car_year']) . '
-            </p>
+        <div class='row mt-4'>
+            <div class='col-md-6'>
+                <h6 class='mb-3'>Müşteri Bilgileri</h6>
+                <table class='table table-sm'>
+                    <tr>
+                        <th>Ad Soyad:</th>
+                        <td>{$rental['user_name']}</td>
+                    </tr>
+                    <tr>
+                        <th>E-posta:</th>
+                        <td>{$rental['user_email']}</td>
+                    </tr>
+                    <tr>
+                        <th>Telefon:</th>
+                        <td>{$rental['user_phone']}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class='col-md-6'>
+                <h6 class='mb-3'>Ödeme Bilgileri</h6>
+                <table class='table table-sm'>
+                    <tr>
+                        <th>Durum:</th>
+                        <td>" . ($rental['payment_status'] ?? 'Beklemede') . "</td>
+                    </tr>
+                    <tr>
+                        <th>Ödeme Yöntemi:</th>
+                        <td>" . ($rental['payment_method'] ?? '-') . "</td>
+                    </tr>
+                    <tr>
+                        <th>İşlem ID:</th>
+                        <td>" . ($rental['transaction_id'] ?? '-') . "</td>
+                    </tr>
+                </table>
+            </div>
         </div>
-        <div class="col-md-6">
-            <h6>Kiralama Detayları</h6>
-            <p>
-                <strong>Başlangıç:</strong> ' . date('d.m.Y H:i', strtotime($rental['start_date'] . ' ' . $rental['start_time'])) . '<br>
-                <strong>Bitiş:</strong> ' . date('d.m.Y H:i', strtotime($rental['end_date'] . ' ' . $rental['end_time'])) . '<br>
-                <strong>Toplam Gün:</strong> ' . $rental['total_days'] . '
-            </p>
-        </div>
-        <div class="col-md-6">
-            <h6>Ödeme Bilgileri</h6>
-            <p>
-                <strong>Toplam Tutar:</strong> ₺' . number_format($rental['total_price'], 2) . '<br>
-                <strong>Ödeme Yöntemi:</strong> ' . ucfirst($rental['payment_method']) . '<br>
-                <strong>Ödeme Durumu:</strong> ' . ucfirst($rental['payment_status']) . '
-            </p>
-        </div>';
-
-    if (count($extra_services) > 0) {
-        $html .= '
-        <div class="col-12">
-            <h6>Ekstra Hizmetler</h6>
-            <ul class="list-group">';
-        
-        foreach ($extra_services as $service) {
-            $html .= '
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    ' . htmlspecialchars($service['name']) . '
-                    <span class="badge bg-primary rounded-pill">₺' . number_format($service['price'], 2) . '</span>
-                </li>';
-        }
-        
-        $html .= '
-            </ul>
-        </div>';
-    }
-
-    $html .= '
-    </div>';
+    </div>";
 
     echo json_encode([
         'success' => true,
