@@ -17,8 +17,8 @@
             <div class="container">
                 <div class="row align-items-center">
                     <div class="col-lg-6">
-                        <h1 class="display-4 fw-bold mb-4">Hakkımızda</h1>
-                        <p class="lead text-muted mb-4">
+                        <h1 class="display-4 fw-bold mb-4 text-white">Hakkımızda</h1>
+                        <p class="lead text-white mb-4">
                             2010 yılından bu yana müşterilerimize en kaliteli araç kiralama hizmetini sunuyoruz.
                             Modern filomuz ve profesyonel ekibimizle sizlere güvenilir ve konforlu bir deneyim yaşatmayı hedefliyoruz.
                         </p>

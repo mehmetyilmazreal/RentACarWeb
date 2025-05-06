@@ -17,16 +17,110 @@
                 <h1 class="animate-fade-in">OOF Araç Kiralama</h1>
                 <p class="animate-fade-in">Güvenilir ve konforlu araç kiralama hizmetleri</p>
                 <div class="mt-4 animate-fade-in">
-                    <a href="cars.php" class="btn btn-custom btn-lg">Araçları Keşfet</a>
+                    <a href="cars.php" class="btn btn-light btn-lg">
+                        Araçları Keşfet
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
                 </div>
             </div>
         </section>
 
-        <section class="py-5">
+        <!-- Öne Çıkan Araçlar -->
+        <section class="featured-cars py-5">
             <div class="container">
-                <h2 class="section-title">Öne Çıkan Araçlar</h2>
+                <div class="section-header text-center mb-5">
+                    <h2 class="section-title">Öne Çıkan Araçlar</h2>
+                    <p class="section-subtitle text-muted">En popüler ve en çok tercih edilen araçlarımız</p>
+                </div>
+                
                 <div class="row g-4">
-                    <?php include 'includes/featured-cars.php'; ?>
+                    <!-- Mercedes C200 -->
+                    <div class="col-md-6 col-lg-4">
+                        <div class="car-card">
+                            <div class="car-badge">Popüler</div>
+                            <div class="car-image">
+                                <img src="assets/images/cars/mercedes-c200.jpg" alt="Mercedes C200" class="img-fluid">
+                                <div class="car-overlay">
+                                    <a href="car-details.php?id=1" class="btn btn-light btn-sm">Detayları Gör</a>
+                                </div>
+                            </div>
+                            <div class="car-content">
+                                <div class="car-header">
+                                    <h3 class="car-title">Mercedes C200</h3>
+                                    <div class="car-price">₺1.200<span>/gün</span></div>
+                                </div>
+                                <div class="car-features">
+                                    <span><i class="fas fa-gas-pump"></i> Benzin</span>
+                                    <span><i class="fas fa-cog"></i> Otomatik</span>
+                                    <span><i class="fas fa-tachometer-alt"></i> 0 KM</span>
+                                </div>
+                                <div class="car-footer">
+                                    <a href="car-details.php?id=1" class="btn btn-primary w-100">Hemen Kirala</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BMW 320i -->
+                    <div class="col-md-6 col-lg-4">
+                        <div class="car-card">
+                            <div class="car-badge">Yeni</div>
+                            <div class="car-image">
+                                <img src="assets/images/cars/bmw-320i.jpg" alt="BMW 320i" class="img-fluid">
+                                <div class="car-overlay">
+                                    <a href="car-details.php?id=2" class="btn btn-light btn-sm">Detayları Gör</a>
+                                </div>
+                            </div>
+                            <div class="car-content">
+                                <div class="car-header">
+                                    <h3 class="car-title">BMW 320i</h3>
+                                    <div class="car-price">₺1.100<span>/gün</span></div>
+                                </div>
+                                <div class="car-features">
+                                    <span><i class="fas fa-gas-pump"></i> Benzin</span>
+                                    <span><i class="fas fa-cog"></i> Otomatik</span>
+                                    <span><i class="fas fa-tachometer-alt"></i> 0 KM</span>
+                                </div>
+                                <div class="car-footer">
+                                    <a href="car-details.php?id=2" class="btn btn-primary w-100">Hemen Kirala</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Audi A4 -->
+                    <div class="col-md-6 col-lg-4">
+                        <div class="car-card">
+                            <div class="car-badge">Premium</div>
+                            <div class="car-image">
+                                <img src="assets/images/cars/audi-a4.jpg" alt="Audi A4" class="img-fluid">
+                                <div class="car-overlay">
+                                    <a href="car-details.php?id=3" class="btn btn-light btn-sm">Detayları Gör</a>
+                                </div>
+                            </div>
+                            <div class="car-content">
+                                <div class="car-header">
+                                    <h3 class="car-title">Audi A4</h3>
+                                    <div class="car-price">₺1.150<span>/gün</span></div>
+                                </div>
+                                <div class="car-features">
+                                    <span><i class="fas fa-gas-pump"></i> Benzin</span>
+                                    <span><i class="fas fa-cog"></i> Otomatik</span>
+                                    <span><i class="fas fa-tachometer-alt"></i> 0 KM</span>
+                                </div>
+                                <div class="car-footer">
+                                    <a href="car-details.php?id=3" class="btn btn-primary w-100">Hemen Kirala</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-5">
+                    <a href="cars.php" class="btn btn-outline-custom btn-lg">
+                        Tüm Araçları Gör
+                        <i class="fas fa-arrow-right ms-2"></i>
+                    </a>
                 </div>
             </div>
         </section>

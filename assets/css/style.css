@@ -102,6 +102,7 @@ body {
     font-weight: 800;
     margin-bottom: 1.5rem;
     letter-spacing: -1px;
+    color: var(--white);
 }
 
 .hero-section p {
@@ -109,6 +110,48 @@ body {
     color: var(--light);
     max-width: 600px;
     margin: 0 auto;
+}
+
+/* Sayfa Hero Bölümü */
+.hero-section.bg-light {
+    background: linear-gradient(rgba(0, 60, 67, 0.9), rgba(0, 60, 67, 0.9));
+    text-align: left;
+    padding: 120px 0 80px;
+}
+
+.hero-section.bg-light h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.hero-section.bg-light p {
+    margin: 0;
+    max-width: none;
+}
+
+/* Hero Section Buton Stili */
+.hero-section .btn-light {
+    background-color: var(--light);
+    color: var(--primary-dark);
+    border: none;
+    padding: 0.75rem 2rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.hero-section .btn-light:hover {
+    background-color: var(--white);
+    color: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.hero-section .btn-light i {
+    transition: transform 0.3s ease;
+}
+
+.hero-section .btn-light:hover i {
+    transform: translateX(5px);
 }
 
 /* Araç Kartları */
@@ -533,5 +576,171 @@ body {
 @media (max-width: 767.98px) {
     .panorama-container {
         height: 300px;
+    }
+}
+
+/* Öne Çıkan Araçlar Bölümü */
+.featured-cars {
+    background-color: var(--gray-100);
+}
+
+.section-header {
+    margin-bottom: 3rem;
+}
+
+.section-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--primary-dark);
+}
+
+.section-subtitle {
+    font-size: 1.1rem;
+    color: var(--gray-600);
+}
+
+.car-card {
+    background: var(--white);
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+    height: 100%;
+}
+
+.car-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.car-badge {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: var(--primary);
+    color: var(--white);
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    z-index: 2;
+}
+
+.car-image {
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 16/9;
+}
+
+.car-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.car-card:hover .car-image img {
+    transform: scale(1.05);
+}
+
+.car-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 60, 67, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.car-card:hover .car-overlay {
+    opacity: 1;
+}
+
+.car-content {
+    padding: 1.5rem;
+}
+
+.car-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.car-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--primary-dark);
+}
+
+.car-price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.car-price span {
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: var(--gray-600);
+}
+
+.car-features {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.car-features span {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--gray-600);
+    font-size: 0.9rem;
+}
+
+.car-features i {
+    color: var(--primary);
+}
+
+.car-footer {
+    margin-top: auto;
+}
+
+.car-footer .btn {
+    padding: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: var(--white);
+}
+
+.car-footer .btn:hover {
+    background-color: var(--primary-dark);
+    border-color: var(--primary-dark);
+}
+
+/* Responsive Düzenlemeler */
+@media (max-width: 768px) {
+    .section-title {
+        font-size: 2rem;
+    }
+    
+    .car-features {
+        flex-wrap: wrap;
+    }
+    
+    .car-features span {
+        font-size: 0.8rem;
     }
 } 

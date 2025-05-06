@@ -17,8 +17,8 @@
             <div class="container">
                 <div class="row align-items-center">
                     <div class="col-lg-6">
-                        <h1 class="display-4 fw-bold mb-4">İletişim</h1>
-                        <p class="lead text-muted mb-4">
+                        <h1 class="display-4 fw-bold mb-4 text-white">İletişim</h1>
+                        <p class="lead text-white mb-4">
                             Sorularınız, önerileriniz veya geri bildirimleriniz için bizimle iletişime geçebilirsiniz.
                             Size en kısa sürede dönüş yapacağız.
                         </p>
