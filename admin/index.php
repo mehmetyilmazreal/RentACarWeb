@@ -82,10 +82,11 @@ $totalRevenue = $db->query("SELECT SUM(total_price) as total FROM rentals WHERE 
                     <h2>Dashboard</h2>
                 </div>
                 <div class="header-right">
-                    <div class="admin-profile">
-                        <img src="../assets/images/admin-avatar.jpg" alt="Admin">
-                        <span><?php echo $_SESSION['admin_name']; ?></span>
-                        <a href="logout.php" class="btn btn-outline-danger btn-sm">Çıkış</a>
+                    <div class="user-info">
+                        <span class="user-name"><?php echo htmlspecialchars($_SESSION['user_name']); ?></span>
+                        <a href="logout.php" class="btn btn-sm btn-outline-danger">
+                            <i class='bx bx-log-out'></i> Çıkış
+                        </a>
                     </div>
                 </div>
             </header>

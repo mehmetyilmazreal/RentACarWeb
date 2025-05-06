@@ -19,11 +19,12 @@ try {
     );
 
     // Sorgu fonksiyonu
-    $db->query = function($sql, $params = []) use ($db) {
+    function query($sql, $params = []) {
+        global $db;
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
         return $stmt;
-    };
+    }
 } catch (PDOException $e) {
     die("Veritabanı bağlantı hatası: " . $e->getMessage());
 } 
