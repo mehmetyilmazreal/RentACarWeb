@@ -7,11 +7,10 @@ require_once 'includes/auth_check.php';
 $cars = $db->query("
     SELECT c.*, 
            COUNT(r.id) as rental_count,
-           GROUP_CONCAT(DISTINCT f.name) as features
+           GROUP_CONCAT(DISTINCT cf.feature_name) as features
     FROM cars c
     LEFT JOIN rentals r ON c.id = r.car_id
     LEFT JOIN car_features cf ON c.id = cf.car_id
-    LEFT JOIN features f ON cf.feature_id = f.id
     GROUP BY c.id
     ORDER BY c.created_at DESC
 ")->fetchAll();
@@ -63,6 +62,7 @@ $cars = $db->query("
                                         <th>Plaka</th>
                                         <th>Fiyat</th>
                                         <th>Durum</th>
+                                        <th>Öne Çıkan</th>
                                         <th>Kiralama Sayısı</th>
                                         <th>İşlemler</th>
                                     </tr>
@@ -84,6 +84,13 @@ $cars = $db->query("
                                             <span class="badge bg-<?php echo $car['status'] == 'available' ? 'success' : 'warning'; ?>">
                                                 <?php echo $car['status'] == 'available' ? 'Müsait' : 'Kirada'; ?>
                                             </span>
+                                        </td>
+                                        <td>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input featured-toggle" type="checkbox" 
+                                                       data-car-id="<?php echo $car['id']; ?>"
+                                                       <?php echo $car['is_featured'] ? 'checked' : ''; ?>>
+                                            </div>
                                         </td>
                                         <td><?php echo $car['rental_count']; ?></td>
                                         <td>
@@ -144,7 +151,27 @@ $cars = $db->query("
                                 <input type="number" class="form-control" name="year" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Fiyat (Günlük)</label>
+                                <label class="form-label">Vites</label>
+                                <select class="form-select" name="transmission" required>
+                                    <option value="automatic">Otomatik</option>
+                                    <option value="manual">Manuel</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Yakıt Tipi</label>
+                                <select class="form-select" name="fuel_type" required>
+                                    <option value="petrol">Benzin</option>
+                                    <option value="diesel">Dizel</option>
+                                    <option value="hybrid">Hibrit</option>
+                                    <option value="electric">Elektrik</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Kilometre</label>
+                                <input type="number" class="form-control" name="mileage" value="0" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Günlük Fiyat</label>
                                 <input type="number" class="form-control" name="price" required>
                             </div>
                             <div class="col-md-6">
@@ -157,27 +184,97 @@ $cars = $db->query("
                             </div>
                             <div class="col-md-12">
                                 <label class="form-label">Özellikler</label>
-                                <select class="form-select select2" name="features[]" multiple>
-                                    <?php
-                                    $features = $db->query("SELECT * FROM features ORDER BY name")->fetchAll();
-                                    foreach ($features as $feature):
-                                    ?>
-                                    <option value="<?php echo $feature['id']; ?>">
-                                        <?php echo $feature['name']; ?>
-                                    </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-12">
-                                <label class="form-label">Açıklama</label>
-                                <textarea class="form-control" name="description" rows="3"></textarea>
+                                <textarea class="form-control" id="features" name="features" rows="3" 
+                                        placeholder="Örnek:&#10;Yağmur Sensörü&#10;Gündüz Farları&#10;Anahtarsız Giriş"></textarea>
                             </div>
                             <div class="col-md-12">
                                 <label class="form-label">Araç Resmi</label>
-                                <input type="file" class="form-control" name="image" accept="image/*" required>
-                                <div class="mt-2">
-                                    <img id="imagePreview" src="" alt="" style="max-width: 200px; display: none;">
+                                <input type="file" class="form-control" id="image" name="image" accept="image/*" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="engine_size" class="form-label">Motor Hacmi</label>
+                                <input type="text" class="form-control" id="engine_size" name="engine_size" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="horsepower" class="form-label">Beygir Gücü</label>
+                                <input type="number" class="form-control" id="horsepower" name="horsepower" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="seats" class="form-label">Koltuk Sayısı</label>
+                                <input type="number" class="form-control" id="seats" name="seats" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="doors" class="form-label">Kapı Sayısı</label>
+                                <input type="number" class="form-control" id="doors" name="doors" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="luggage_capacity" class="form-label">Bagaj Hacmi</label>
+                                <input type="text" class="form-control" id="luggage_capacity" name="luggage_capacity" required>
+                            </div>
+
+                            <h5 class="mt-4 mb-3">Donanım</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="air_conditioning" name="air_conditioning" checked>
+                                        <label class="form-check-label" for="air_conditioning">Klima</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="abs" name="abs" checked>
+                                        <label class="form-check-label" for="abs">ABS</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="esp" name="esp" checked>
+                                        <label class="form-check-label" for="esp">ESP</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="cruise_control" name="cruise_control">
+                                        <label class="form-check-label" for="cruise_control">Hız Sabitleyici</label>
+                                    </div>
                                 </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="parking_sensors" name="parking_sensors">
+                                        <label class="form-check-label" for="parking_sensors">Park Sensörü</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="reverse_camera" name="reverse_camera">
+                                        <label class="form-check-label" for="reverse_camera">Geri Görüş Kamerası</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="bluetooth" name="bluetooth" checked>
+                                        <label class="form-check-label" for="bluetooth">Bluetooth</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="navigation" name="navigation">
+                                        <label class="form-check-label" for="navigation">Navigasyon</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="sunroof" name="sunroof">
+                                        <label class="form-check-label" for="sunroof">Sunroof</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="leather_seats" name="leather_seats">
+                                        <label class="form-check-label" for="leather_seats">Deri Koltuk</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="airbag_count" class="form-label">Hava Yastığı Sayısı</label>
+                                <input type="number" class="form-control" id="airbag_count" name="airbag_count" value="2" required>
                             </div>
                         </div>
                     </form>
@@ -209,6 +306,55 @@ $cars = $db->query("
             previewImage(this, 'imagePreview');
         });
 
+        // Form Validation
+        function validateForm(form) {
+            const requiredFields = form.querySelectorAll('[required]');
+            let isValid = true;
+
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    field.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    field.classList.remove('is-invalid');
+                }
+            });
+
+            // Özel validasyonlar
+            const year = form.querySelector('[name="year"]');
+            if (year.value) {
+                const yearNum = parseInt(year.value);
+                if (yearNum < 1900 || yearNum > new Date().getFullYear()) {
+                    year.classList.add('is-invalid');
+                    isValid = false;
+                }
+            }
+
+            const price = form.querySelector('[name="price"]');
+            if (price.value) {
+                const priceNum = parseFloat(price.value);
+                if (priceNum <= 0) {
+                    price.classList.add('is-invalid');
+                    isValid = false;
+                }
+            }
+
+            const mileage = form.querySelector('[name="mileage"]');
+            if (mileage.value) {
+                const mileageNum = parseInt(mileage.value);
+                if (mileageNum < 0) {
+                    mileage.classList.add('is-invalid');
+                    isValid = false;
+                }
+            }
+
+            if (!isValid) {
+                showAlert('error', 'Lütfen tüm zorunlu alanları doğru şekilde doldurun.');
+            }
+
+            return isValid;
+        }
+
         // Form Submit
         function submitAddCar() {
             const form = document.getElementById('addCarForm');
@@ -217,6 +363,149 @@ $cars = $db->query("
             const formData = new FormData(form);
             addCar(formData);
         }
+
+        // Add Car Function
+        function addCar(formData) {
+            // Submit butonunu devre dışı bırak
+            const submitBtn = document.querySelector('#addCarModal .btn-primary');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Kaydediliyor...';
+
+            fetch('api/add-car.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                return response.text();
+            })
+            .then(text => {
+                console.log('Response text:', text);
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    throw new Error('Sunucu yanıtı geçersiz: ' + text);
+                }
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                if (data.success) {
+                    showAlert('success', data.message);
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showAlert('error', data.message || 'Bir hata oluştu');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('error', error.message || 'Bir hata oluştu. Lütfen daha sonra tekrar deneyiniz.');
+            })
+            .finally(() => {
+                // Submit butonunu tekrar aktif et
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Kaydet';
+            });
+        }
+
+        // Input validation on change
+        document.querySelectorAll('#addCarForm input, #addCarForm select').forEach(input => {
+            input.addEventListener('change', function() {
+                if (this.hasAttribute('required')) {
+                    if (!this.value.trim()) {
+                        this.classList.add('is-invalid');
+                    } else {
+                        this.classList.remove('is-invalid');
+                    }
+                }
+            });
+        });
+
+        // Delete Car Function
+        function deleteCar(carId) {
+            if (!confirm('Bu aracı silmek istediğinizden emin misiniz?')) {
+                return;
+            }
+
+            // FormData oluştur
+            const formData = new FormData();
+            formData.append('car_id', carId);
+
+            // Silme butonunu devre dışı bırak
+            const deleteBtn = event.target.closest('.btn-danger');
+            const originalContent = deleteBtn.innerHTML;
+            deleteBtn.disabled = true;
+            deleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+
+            fetch('api/delete-car.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', data.message);
+                    // Silinen aracın satırını kaldır
+                    const row = deleteBtn.closest('tr');
+                    row.style.backgroundColor = '#ffebee';
+                    row.style.transition = 'background-color 0.5s';
+                    setTimeout(() => {
+                        row.remove();
+                    }, 500);
+                } else {
+                    showAlert('error', data.message || 'Bir hata oluştu');
+                    // Butonu eski haline getir
+                    deleteBtn.disabled = false;
+                    deleteBtn.innerHTML = originalContent;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('error', 'Bir hata oluştu. Lütfen daha sonra tekrar deneyiniz.');
+                // Butonu eski haline getir
+                deleteBtn.disabled = false;
+                deleteBtn.innerHTML = originalContent;
+            });
+        }
+
+        // Öne çıkan araç durumunu güncelle
+        document.querySelectorAll('.featured-toggle').forEach(toggle => {
+            toggle.addEventListener('change', function() {
+                const carId = this.dataset.carId;
+                const isFeatured = this.checked;
+
+                fetch('api/update-featured.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        car_id: carId,
+                        is_featured: isFeatured
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        alert(data.message || 'Bir hata oluştu!');
+                        this.checked = !isFeatured; // Toggle'ı eski haline getir
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Bir hata oluştu!');
+                    this.checked = !isFeatured; // Toggle'ı eski haline getir
+                });
+            });
+        });
     </script>
 </body>
 </html> 

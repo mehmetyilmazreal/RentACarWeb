@@ -1,3 +1,52 @@
+<?php
+// Veritabanı bağlantısını dahil et
+require_once 'config/db.php';
+
+// Filtreleme parametrelerini al
+$brand = $_GET['brand'] ?? '';
+$min_price = $_GET['min_price'] ?? '';
+$max_price = $_GET['max_price'] ?? '';
+$transmission = $_GET['transmission'] ?? '';
+$fuel_type = $_GET['fuel_type'] ?? '';
+
+// SQL sorgusunu oluştur
+$sql = "SELECT * FROM cars WHERE status = 'available'";
+$params = [];
+
+if ($brand) {
+    $sql .= " AND brand LIKE ?";
+    $params[] = "%$brand%";
+}
+
+if ($min_price) {
+    $sql .= " AND daily_price >= ?";
+    $params[] = $min_price;
+}
+
+if ($max_price) {
+    $sql .= " AND daily_price <= ?";
+    $params[] = $max_price;
+}
+
+if ($transmission) {
+    $sql .= " AND transmission = ?";
+    $params[] = $transmission;
+}
+
+if ($fuel_type) {
+    $sql .= " AND fuel_type = ?";
+    $params[] = $fuel_type;
+}
+
+$sql .= " ORDER BY created_at DESC";
+
+// Araçları getir
+$cars = query($sql, $params)->fetchAll();
+
+// Markaları getir (filtreleme için)
+$brands = query("SELECT DISTINCT brand FROM cars WHERE status = 'available' ORDER BY brand")->fetchAll(PDO::FETCH_COLUMN);
+?>
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -16,158 +65,117 @@
             <div class="container">
                 <div class="row">
                     <!-- Filtreler -->
-                    <div class="col-lg-3">
-                        <div class="filter-container p-4 bg-white rounded-3 shadow-sm">
-                            <h4 class="mb-4">Filtreler</h4>
-                            
-                            <!-- Araç Tipi -->
-                            <div class="mb-4">
-                                <h6 class="mb-3">Araç Tipi</h6>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="sedan">
-                                    <label class="form-check-label" for="sedan">Sedan</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="suv">
-                                    <label class="form-check-label" for="suv">SUV</label>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="hatchback">
-                                    <label class="form-check-label" for="hatchback">Hatchback</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="station">
-                                    <label class="form-check-label" for="station">Station</label>
-                                </div>
-                            </div>
-
-                            <!-- Fiyat Aralığı -->
-                            <div class="mb-4">
-                                <h6 class="mb-3">Fiyat Aralığı</h6>
-                                <div class="range-slider">
-                                    <input type="range" class="form-range" min="0" max="1000" step="50" id="priceRange">
-                                    <div class="d-flex justify-content-between mt-2">
-                                        <span>0₺</span>
-                                        <span id="priceValue">500₺</span>
-                                        <span>1000₺</span>
+                    <div class="col-lg-3 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title mb-3">Filtreler</h5>
+                                <form method="GET" id="filterForm">
+                                    <div class="mb-3">
+                                        <label class="form-label">Marka</label>
+                                        <select name="brand" class="form-select">
+                                            <option value="">Tümü</option>
+                                            <?php foreach ($brands as $b): ?>
+                                                <option value="<?php echo htmlspecialchars($b); ?>" 
+                                                        <?php echo $brand === $b ? 'selected' : ''; ?>>
+                                                    <?php echo htmlspecialchars($b); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
                                     </div>
-                                </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Günlük Fiyat Aralığı</label>
+                                        <div class="input-group mb-2">
+                                            <input type="number" name="min_price" class="form-control" 
+                                                   placeholder="Min" value="<?php echo $min_price; ?>">
+                                            <input type="number" name="max_price" class="form-control" 
+                                                   placeholder="Max" value="<?php echo $max_price; ?>">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Vites</label>
+                                        <select name="transmission" class="form-select">
+                                            <option value="">Tümü</option>
+                                            <option value="manual" <?php echo $transmission === 'manual' ? 'selected' : ''; ?>>Manuel</option>
+                                            <option value="automatic" <?php echo $transmission === 'automatic' ? 'selected' : ''; ?>>Otomatik</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Yakıt Tipi</label>
+                                        <select name="fuel_type" class="form-select">
+                                            <option value="">Tümü</option>
+                                            <option value="petrol" <?php echo $fuel_type === 'petrol' ? 'selected' : ''; ?>>Benzin</option>
+                                            <option value="diesel" <?php echo $fuel_type === 'diesel' ? 'selected' : ''; ?>>Dizel</option>
+                                            <option value="hybrid" <?php echo $fuel_type === 'hybrid' ? 'selected' : ''; ?>>Hibrit</option>
+                                            <option value="electric" <?php echo $fuel_type === 'electric' ? 'selected' : ''; ?>>Elektrik</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="d-grid gap-2">
+                                        <button type="submit" class="btn btn-custom">
+                                            <i class="fas fa-filter me-2"></i>Filtrele
+                                        </button>
+                                        <a href="cars.php" class="btn btn-outline-custom">
+                                            <i class="fas fa-times me-2"></i>Filtreleri Temizle
+                                        </a>
+                                    </div>
+                                </form>
                             </div>
-
-                            <!-- Vites Tipi -->
-                            <div class="mb-4">
-                                <h6 class="mb-3">Vites Tipi</h6>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="radio" name="transmission" id="manual">
-                                    <label class="form-check-label" for="manual">Manuel</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="transmission" id="automatic">
-                                    <label class="form-check-label" for="automatic">Otomatik</label>
-                                </div>
-                            </div>
-
-                            <!-- Yakıt Tipi -->
-                            <div class="mb-4">
-                                <h6 class="mb-3">Yakıt Tipi</h6>
-                                <select class="form-select">
-                                    <option selected>Tümü</option>
-                                    <option>Benzin</option>
-                                    <option>Dizel</option>
-                                    <option>Elektrik</option>
-                                    <option>Hibrit</option>
-                                </select>
-                            </div>
-
-                            <button class="btn btn-custom w-100">Filtreleri Uygula</button>
                         </div>
                     </div>
-
+                    
                     <!-- Araç Listesi -->
                     <div class="col-lg-9">
-                        <!-- Sıralama ve Görünüm -->
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div class="d-flex align-items-center gap-3">
-                                <select class="form-select">
-                                    <option selected>En Yeni</option>
-                                    <option>Fiyat (Düşükten Yükseğe)</option>
-                                    <option>Fiyat (Yüksekten Düşüğe)</option>
-                                    <option>Popülerlik</option>
-                                </select>
-                            </div>
-                            <div class="view-options">
-                                <button class="btn btn-outline-custom active">
-                                    <i class="fas fa-th-large"></i>
-                                </button>
-                                <button class="btn btn-outline-custom">
-                                    <i class="fas fa-list"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Araç Kartları -->
-                        <div class="row g-4">
-                            <?php
-                            // Örnek araç verileri
-                            $cars = [
-                                [
-                                    'name' => 'Mercedes C200',
-                                    'type' => 'Sedan',
-                                    'price' => '850',
-                                    'image' => 'assets/images/cars/mercedes-c200.jpg',
-                                    'features' => ['Otomatik', 'Benzin', '5 Kişilik']
-                                ],
-                                [
-                                    'name' => 'BMW X5',
-                                    'type' => 'SUV',
-                                    'price' => '1200',
-                                    'image' => 'assets/images/cars/bmw-x5.jpg',
-                                    'features' => ['Otomatik', 'Dizel', '5 Kişilik']
-                                ],
-                                // Diğer araçlar buraya eklenecek
-                            ];
-
-                            foreach ($cars as $car): ?>
-                            <div class="col-md-6 col-lg-4">
-                                <div class="car-card h-100">
-                                    <div class="position-relative">
-                                        <img src="<?php echo $car['image']; ?>" class="card-img-top" alt="<?php echo $car['name']; ?>">
-                                        <span class="badge bg-primary position-absolute top-0 end-0 m-3"><?php echo $car['type']; ?></span>
-                                    </div>
-                                    <div class="card-body">
-                                        <h5 class="card-title"><?php echo $car['name']; ?></h5>
-                                        <div class="d-flex gap-2 mb-3">
-                                            <?php foreach ($car['features'] as $feature): ?>
-                                                <span class="badge bg-light text-dark"><?php echo $feature; ?></span>
-                                            <?php endforeach; ?>
-                                        </div>
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <span class="h5 mb-0"><?php echo $car['price']; ?>₺</span>
-                                                <small class="text-muted">/gün</small>
+                        <div class="row">
+                            <?php if (count($cars) > 0): ?>
+                                <?php foreach ($cars as $car): ?>
+                                    <div class="col-md-6 col-lg-4 mb-4">
+                                        <div class="card h-100">
+                                            <div class="car-image">
+                                                <img src="assets/images/cars/<?php echo htmlspecialchars($car['image']); ?>" 
+                                                     class="img-fluid" 
+                                                     alt="<?php echo htmlspecialchars($car['brand'] . ' ' . $car['model']); ?>">
+                                                <div class="car-overlay">
+                                                    <a href="car-details.php?id=<?php echo $car['id']; ?>" class="btn btn-light">
+                                                        Detayları Gör <i class="fas fa-arrow-right ms-2"></i>
+                                                    </a>
+                                                </div>
                                             </div>
-                                            <a href="car-details.php" class="btn btn-custom">Detaylar</a>
+                                            <div class="card-body">
+                                                <div class="car-content">
+                                                    <div class="car-header">
+                                                        <h3 class="car-title"><?php echo htmlspecialchars($car['brand'] . ' ' . $car['model']); ?></h3>
+                                                        <div class="car-price">
+                                                            <?php echo number_format($car['price'], 2); ?> ₺<span>/ gün</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="car-features">
+                                                        <span><i class="fas fa-gas-pump"></i> <?php echo ucfirst(htmlspecialchars($car['fuel_type'])); ?></span>
+                                                        <span><i class="fas fa-cog"></i> <?php echo ucfirst(htmlspecialchars($car['transmission'])); ?></span>
+                                                        <span><i class="fas fa-tachometer-alt"></i> <?php echo number_format($car['mileage']); ?> KM</span>
+                                                    </div>
+                                                    <div class="car-footer mt-3">
+                                                        <a href="car-details.php?id=<?php echo $car['id']; ?>" class="btn btn-custom w-100">
+                                                            Detayları Gör
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div class="col-12">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Seçtiğiniz kriterlere uygun araç bulunamadı.
+                                        <a href="cars.php" class="alert-link">Filtreleri temizleyin</a>.
                                     </div>
                                 </div>
-                            </div>
-                            <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
-
-                        <!-- Sayfalama -->
-                        <nav class="mt-5">
-                            <ul class="pagination justify-content-center">
-                                <li class="page-item disabled">
-                                    <a class="page-link" href="#" tabindex="-1">Önceki</a>
-                                </li>
-                                <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                                <li class="page-item"><a class="page-link" href="#">2</a></li>
-                                <li class="page-item"><a class="page-link" href="#">3</a></li>
-                                <li class="page-item">
-                                    <a class="page-link" href="#">Sonraki</a>
-                                </li>
-                            </ul>
-                        </nav>
                     </div>
                 </div>
             </div>

@@ -1,14 +1,63 @@
+<?php
+session_start();
+require_once 'config/db.php';
+
+// Araç ID'sini al
+$car_id = $_GET['id'] ?? null;
+if (!$car_id) {
+    header('Location: cars.php');
+    exit;
+}
+
+// Araç bilgilerini getir
+$stmt = $db->prepare("
+    SELECT c.*, 
+           GROUP_CONCAT(DISTINCT cf.feature_name) as additional_features
+    FROM cars c
+    LEFT JOIN car_features cf ON c.id = cf.car_id
+    WHERE c.id = ?
+    GROUP BY c.id
+");
+$stmt->execute([$car_id]);
+$car = $stmt->fetch();
+
+if (!$car) {
+    header('Location: cars.php');
+    exit;
+}
+
+// Durum badge'inin rengini belirle
+$status_badge = [
+    'available' => ['bg-success', 'Müsait'],
+    'rented' => ['bg-warning', 'Kirada'],
+    'maintenance' => ['bg-danger', 'Bakımda']
+][$car['status']] ?? ['bg-secondary', 'Bilinmiyor'];
+
+// Yakıt tipini Türkçeleştir
+$fuel_types = [
+    'petrol' => 'Benzin',
+    'diesel' => 'Dizel',
+    'hybrid' => 'Hibrit',
+    'electric' => 'Elektrik'
+];
+
+// Vites tipini Türkçeleştir
+$transmission_types = [
+    'automatic' => 'Otomatik',
+    'manual' => 'Manuel'
+];
+?>
 <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mercedes C200 | OOF Araç Kiralama</title>
+    <title><?php echo htmlspecialchars($car['brand'] . ' ' . $car['model']); ?> | OOF Araç Kiralama</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@8/swiper-bundle.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <?php include 'includes/header.php'; ?>
@@ -19,57 +68,42 @@
                 <!-- Araç Başlık ve Özet Bilgiler -->
                 <div class="row mb-5">
                     <div class="col-lg-8">
-                        <h1 class="car-title mb-3">Mercedes C200</h1>
+                        <h1 class="car-title mb-3"><?php echo htmlspecialchars($car['brand'] . ' ' . $car['model']); ?></h1>
                         <div class="d-flex gap-3 mb-4">
-                            <span class="badge bg-primary">Sedan</span>
-                            <span class="badge bg-light text-dark">Otomatik</span>
-                            <span class="badge bg-light text-dark">Benzin</span>
-                            <span class="badge bg-light text-dark">5 Kişilik</span>
+                            <span class="badge bg-<?php echo $status_badge[0]; ?>"><?php echo $status_badge[1]; ?></span>
+                            <span class="badge bg-light text-dark"><?php echo $transmission_types[$car['transmission']] ?? 'Bilinmiyor'; ?></span>
+                            <span class="badge bg-light text-dark"><?php echo $fuel_types[$car['fuel_type']] ?? 'Bilinmiyor'; ?></span>
+                            <span class="badge bg-light text-dark"><?php echo $car['seats']; ?> Kişilik</span>
                         </div>
                     </div>
                     <div class="col-lg-4 text-lg-end">
                         <div class="price-tag">
-                            <span class="h2 mb-0">850₺</span>
+                            <span class="h2 mb-0"><?php echo number_format($car['price'], 2); ?>₺</span>
                             <small class="text-muted">/gün</small>
                         </div>
                         <?php if (isset($_SESSION['user_id'])): ?>
-                            <a href="#booking" class="btn btn-custom btn-lg w-100 mt-3">Hemen Kirala</a>
+                            <?php if ($car['status'] == 'available'): ?>
+                                <a href="#booking" class="btn btn-custom btn-lg w-100 mt-3">Hemen Kirala</a>
+                            <?php else: ?>
+                                <button class="btn btn-secondary btn-lg w-100 mt-3" disabled>
+                                    <?php echo $status_badge[1]; ?>
+                                </button>
+                            <?php endif; ?>
                         <?php else: ?>
                             <a href="login.php" class="btn btn-outline-custom btn-lg w-100 mt-3">Kiralamak için Giriş Yapın</a>
                         <?php endif; ?>
                     </div>
                 </div>
 
-                <!-- 360 Derece Görüntüleme -->
+                <!-- Araç Galerisi -->
                 <div class="row mb-5">
                     <div class="col-12">
                         <div class="card">
                             <div class="card-body">
-                                <h3 class="card-title h4 mb-4">360° Araç Görünümü</h3>
-                                <div id="panorama" class="panorama-container"></div>
+                                <img src="assets/images/cars/<?php echo htmlspecialchars($car['image']); ?>" 
+                                     alt="<?php echo htmlspecialchars($car['brand'] . ' ' . $car['model']); ?>" 
+                                     class="img-fluid rounded-3">
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Araç Galerisi -->
-                <div class="row mb-5">
-                    <div class="col-12">
-                        <div class="swiper car-gallery">
-                            <div class="swiper-wrapper">
-                                <div class="swiper-slide">
-                                    <img src="assets/images/cars/mercedes-c200-1.jpg" alt="Mercedes C200" class="img-fluid rounded-3">
-                                </div>
-                                <div class="swiper-slide">
-                                    <img src="assets/images/cars/mercedes-c200-2.jpg" alt="Mercedes C200" class="img-fluid rounded-3">
-                                </div>
-                                <div class="swiper-slide">
-                                    <img src="assets/images/cars/mercedes-c200-3.jpg" alt="Mercedes C200" class="img-fluid rounded-3">
-                                </div>
-                            </div>
-                            <div class="swiper-pagination"></div>
-                            <div class="swiper-button-next"></div>
-                            <div class="swiper-button-prev"></div>
                         </div>
                     </div>
                 </div>
@@ -86,17 +120,17 @@
                                         <div class="feature-item">
                                             <i class="fas fa-tachometer-alt"></i>
                                             <div>
-                                                <h6>Motor Gücü</h6>
-                                                <p>184 HP</p>
+                                                <h6>Motor Hacmi</h6>
+                                                <p><?php echo htmlspecialchars($car['engine_size']); ?></p>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="feature-item">
-                                            <i class="fas fa-gas-pump"></i>
+                                            <i class="fas fa-horse"></i>
                                             <div>
-                                                <h6>Yakıt Tüketimi</h6>
-                                                <p>6.5L/100km</p>
+                                                <h6>Beygir Gücü</h6>
+                                                <p><?php echo htmlspecialchars($car['horsepower']); ?> HP</p>
                                             </div>
                                         </div>
                                     </div>
@@ -105,16 +139,16 @@
                                             <i class="fas fa-cog"></i>
                                             <div>
                                                 <h6>Vites</h6>
-                                                <p>9 İleri Otomatik</p>
+                                                <p><?php echo $transmission_types[$car['transmission']] ?? 'Bilinmiyor'; ?></p>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="feature-item">
-                                            <i class="fas fa-car"></i>
+                                            <i class="fas fa-gas-pump"></i>
                                             <div>
-                                                <h6>0-100 km/s</h6>
-                                                <p>7.3 saniye</p>
+                                                <h6>Yakıt Tipi</h6>
+                                                <p><?php echo $fuel_types[$car['fuel_type']] ?? 'Bilinmiyor'; ?></p>
                                             </div>
                                         </div>
                                     </div>
@@ -129,39 +163,72 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <ul class="list-unstyled">
-                                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>LED Farlar</li>
-                                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Deri Döşeme</li>
-                                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Navigasyon</li>
-                                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Bluetooth</li>
+                                            <?php if ($car['air_conditioning']): ?>
+                                                <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Klima</li>
+                                            <?php endif; ?>
+                                            <?php if ($car['abs']): ?>
+                                                <li class="mb-2"><i class="fas fa-check text-success me-2"></i>ABS</li>
+                                            <?php endif; ?>
+                                            <?php if ($car['esp']): ?>
+                                                <li class="mb-2"><i class="fas fa-check text-success me-2"></i>ESP</li>
+                                            <?php endif; ?>
+                                            <?php if ($car['cruise_control']): ?>
+                                                <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Hız Sabitleyici</li>
+                                            <?php endif; ?>
                                         </ul>
                                     </div>
                                     <div class="col-md-6">
                                         <ul class="list-unstyled">
-                                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Park Sensörü</li>
-                                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Geri Görüş Kamerası</li>
-                                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Yağmur Sensörü</li>
-                                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Klima</li>
+                                            <?php if ($car['parking_sensors']): ?>
+                                                <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Park Sensörü</li>
+                                            <?php endif; ?>
+                                            <?php if ($car['reverse_camera']): ?>
+                                                <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Geri Görüş Kamerası</li>
+                                            <?php endif; ?>
+                                            <?php if ($car['bluetooth']): ?>
+                                                <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Bluetooth</li>
+                                            <?php endif; ?>
+                                            <?php if ($car['navigation']): ?>
+                                                <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Navigasyon</li>
+                                            <?php endif; ?>
                                         </ul>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
+                        <!-- Ek Özellikler -->
+                        <?php if ($car['additional_features']): ?>
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h3 class="card-title h4 mb-4">Ek Özellikler</h3>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <ul class="list-unstyled row">
+                                            <?php foreach (explode(',', $car['additional_features']) as $feature): ?>
+                                                <li class="col-md-6 mb-2">
+                                                    <i class="fas fa-check text-success me-2"></i>
+                                                    <?php echo htmlspecialchars(trim($feature)); ?>
+                                                </li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
                         <!-- Açıklama -->
+                        <?php if ($car['description']): ?>
                         <div class="card">
                             <div class="card-body">
                                 <h3 class="card-title h4 mb-4">Araç Hakkında</h3>
                                 <p class="card-text">
-                                    Mercedes C200, lüks ve konforu bir arada sunan premium bir sedan modelidir. 
-                                    Modern tasarımı, gelişmiş teknolojik özellikleri ve üstün performansı ile 
-                                    öne çıkan bu model, hem şehir içi hem de uzun yol kullanımı için ideal bir seçimdir.
-                                </p>
-                                <p class="card-text">
-                                    Geniş iç mekanı, yüksek konfor seviyesi ve güvenlik özellikleri ile 
-                                    sürücü ve yolcularına unutulmaz bir sürüş deneyimi sunar.
+                                    <?php echo nl2br(htmlspecialchars($car['description'])); ?>
                                 </p>
                             </div>
                         </div>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Kiralama Formu -->
@@ -184,63 +251,32 @@
                                     </div>
                                 <?php else: ?>
                                     <form id="bookingForm" class="needs-validation" novalidate>
+                                        <input type="hidden" name="car_id" value="<?php echo $car['id']; ?>">
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <label class="form-label">Alış Tarihi</label>
-                                                <input type="date" class="form-control" id="start-date" required>
+                                                <input type="date" class="form-control" name="start_date" required 
+                                                       min="<?php echo date('Y-m-d'); ?>">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">Dönüş Tarihi</label>
-                                                <input type="date" class="form-control" id="end-date" required>
+                                                <input type="date" class="form-control" name="end_date" required
+                                                       min="<?php echo date('Y-m-d'); ?>">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">Alış Saati</label>
-                                                <input type="time" class="form-control" id="start-time" required>
+                                                <input type="time" class="form-control" name="start_time" required>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">Dönüş Saati</label>
-                                                <input type="time" class="form-control" id="end-time" required>
+                                                <input type="time" class="form-control" name="end_time" required>
                                             </div>
-                                        </div>
-
-                                        <div class="mt-4">
-                                            <h6 class="mb-3">Ekstra Hizmetler</h6>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input extra-service" type="checkbox" id="insurance" data-price="50">
-                                                <label class="form-check-label" for="insurance">
-                                                    Ekstra Sigorta (+50₺/gün)
-                                                </label>
+                                            <div class="col-12">
+                                                <button type="submit" class="btn btn-custom w-100" 
+                                                        <?php echo $car['status'] != 'available' ? 'disabled' : ''; ?>>
+                                                    Rezervasyon Yap
+                                                </button>
                                             </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input extra-service" type="checkbox" id="gps" data-price="30">
-                                                <label class="form-check-label" for="gps">
-                                                    GPS Navigasyon (+30₺/gün)
-                                                </label>
-                                            </div>
-                                            <div class="form-check">
-                                                <input class="form-check-input extra-service" type="checkbox" id="childSeat" data-price="20">
-                                                <label class="form-check-label" for="childSeat">
-                                                    Çocuk Koltuğu (+20₺/gün)
-                                                </label>
-                                            </div>
-                                        </div>
-
-                                        <div class="mt-4">
-                                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                                <span>Günlük Ücret:</span>
-                                                <span id="daily-price">500₺</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                                <span>Toplam Gün:</span>
-                                                <span id="total-days">0</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <strong>Toplam Tutar:</strong>
-                                                <strong id="total-price">0₺</strong>
-                                            </div>
-                                            <button type="submit" class="btn btn-custom w-100">
-                                                <i class="fas fa-check me-2"></i>Kiralamayı Onayla
-                                            </button>
                                         </div>
                                     </form>
                                 <?php endif; ?>
@@ -253,11 +289,47 @@
     </main>
 
     <?php include 'includes/footer.php'; ?>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://kit.fontawesome.com/your-code.js" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/swiper@8/swiper-bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
-    <script src="assets/js/main.js"></script>
+    <script>
+        // Tarih kontrolü
+        document.querySelectorAll('input[type="date"]').forEach(input => {
+            input.addEventListener('change', function() {
+                const startDate = document.querySelector('input[name="start_date"]').value;
+                const endDate = document.querySelector('input[name="end_date"]').value;
+                
+                if (startDate && endDate && startDate > endDate) {
+                    alert('Dönüş tarihi alış tarihinden önce olamaz!');
+                    this.value = '';
+                }
+            });
+        });
+
+        // Form gönderimi
+        document.getElementById('bookingForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch('api/create-rental.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect;
+                } else {
+                    alert(data.message || 'Bir hata oluştu!');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Bir hata oluştu!');
+            });
+        });
+    </script>
 </body>
 </html> 
