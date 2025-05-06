@@ -4,10 +4,10 @@ require_once '../config/db.php';
 require_once 'includes/auth_check.php';
 
 // İstatistikleri al
-$totalCars = $db->query("SELECT COUNT(*) as count FROM cars")->fetch()['count'];
-$activeRentals = $db->query("SELECT COUNT(*) as count FROM rentals WHERE status = 'active'")->fetch()['count'];
-$totalUsers = $db->query("SELECT COUNT(*) as count FROM users")->fetch()['count'];
-$totalRevenue = $db->query("SELECT SUM(total_price) as total FROM rentals WHERE status = 'completed'")->fetch()['total'];
+$totalCars = $db->query("SELECT COUNT(*) as count FROM cars")->fetch()['count'] ?? 0;
+$activeRentals = $db->query("SELECT COUNT(*) as count FROM rentals WHERE status = 'confirmed'")->fetch()['count'] ?? 0;
+$totalUsers = $db->query("SELECT COUNT(*) as count FROM users")->fetch()['count'] ?? 0;
+$totalRevenue = $db->query("SELECT COALESCE(SUM(total_price), 0) as total FROM rentals WHERE status = 'completed'")->fetch()['total'] ?? 0;
 ?>
 
 <!DOCTYPE html>
@@ -165,7 +165,8 @@ $totalRevenue = $db->query("SELECT SUM(total_price) as total FROM rentals WHERE 
                                 <tbody>
                                     <?php
                                     $recentRentals = $db->query("
-                                        SELECT r.*, u.name as user_name, c.model as car_model 
+                                        SELECT r.*, u.name as user_name, c.model as car_model,
+                                               COALESCE(r.status, 'pending') as status
                                         FROM rentals r 
                                         JOIN users u ON r.user_id = u.id 
                                         JOIN cars c ON r.car_id = c.id 
@@ -173,43 +174,69 @@ $totalRevenue = $db->query("SELECT SUM(total_price) as total FROM rentals WHERE 
                                         LIMIT 5
                                     ")->fetchAll();
 
-                                    foreach ($recentRentals as $rental):
-                                        $statusClass = [
-                                            'pending' => 'warning',
-                                            'active' => 'success',
-                                            'completed' => 'info',
-                                            'cancelled' => 'danger'
-                                        ][$rental['status']];
-                                    ?>
-                                    <tr>
-                                        <td>#<?php echo $rental['id']; ?></td>
-                                        <td><?php echo $rental['user_name']; ?></td>
-                                        <td><?php echo $rental['car_model']; ?></td>
-                                        <td><?php echo date('d.m.Y', strtotime($rental['start_date'])); ?></td>
-                                        <td><?php echo date('d.m.Y', strtotime($rental['end_date'])); ?></td>
-                                        <td>₺<?php echo number_format($rental['total_price'], 2); ?></td>
-                                        <td>
-                                            <span class="badge bg-<?php echo $statusClass; ?>">
-                                                <?php echo ucfirst($rental['status']); ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div class="btn-group">
-                                                <a href="rental-details.php?id=<?php echo $rental['id']; ?>" 
-                                                   class="btn btn-sm btn-info">
-                                                    <i class='bx bxs-detail'></i>
-                                                </a>
-                                                <?php if ($rental['status'] == 'active'): ?>
-                                                <button type="button" 
-                                                        class="btn btn-sm btn-danger"
-                                                        onclick="cancelRental(<?php echo $rental['id']; ?>)">
-                                                    <i class='bx bxs-x-circle'></i>
-                                                </button>
-                                                <?php endif; ?>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
+                                    if (count($recentRentals) > 0):
+                                        foreach ($recentRentals as $rental): 
+                                            $statusMap = [
+                                                'pending' => [
+                                                    'class' => 'warning',
+                                                    'text' => 'Beklemede'
+                                                ],
+                                                'confirmed' => [
+                                                    'class' => 'success',
+                                                    'text' => 'Onaylandı'
+                                                ],
+                                                'completed' => [
+                                                    'class' => 'info',
+                                                    'text' => 'Tamamlandı'
+                                                ],
+                                                'cancelled' => [
+                                                    'class' => 'danger',
+                                                    'text' => 'İptal Edildi'
+                                                ]
+                                            ];
+
+                                            $currentStatus = isset($rental['status']) && array_key_exists($rental['status'], $statusMap) 
+                                                ? $rental['status'] 
+                                                : 'pending';
+                                            
+                                            $statusClass = $statusMap[$currentStatus]['class'];
+                                            $statusText = $statusMap[$currentStatus]['text'];
+                                        ?>
+                                        <tr>
+                                            <td>#<?php echo $rental['id']; ?></td>
+                                            <td><?php echo htmlspecialchars($rental['user_name']); ?></td>
+                                            <td><?php echo htmlspecialchars($rental['car_model']); ?></td>
+                                            <td><?php echo date('d.m.Y', strtotime($rental['start_date'])); ?></td>
+                                            <td><?php echo date('d.m.Y', strtotime($rental['end_date'])); ?></td>
+                                            <td>₺<?php echo number_format($rental['total_price'], 2); ?></td>
+                                            <td>
+                                                <span class="badge bg-<?php echo $statusClass; ?>">
+                                                    <?php echo $statusText; ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group">
+                                                    <a href="rental-details.php?id=<?php echo $rental['id']; ?>" 
+                                                       class="btn btn-sm btn-info">
+                                                        <i class='bx bxs-detail'></i>
+                                                    </a>
+                                                    <?php if ($currentStatus === 'confirmed'): ?>
+                                                    <button type="button" class="btn btn-sm btn-success" 
+                                                            onclick="updateRentalStatus(<?php echo $rental['id']; ?>, 'completed')">
+                                                        <i class='bx bx-check'></i>
+                                                    </button>
+                                                    <?php endif; ?>
+                                                    <?php if (in_array($currentStatus, ['pending', 'confirmed'])): ?>
+                                                    <button type="button" class="btn btn-sm btn-danger" 
+                                                            onclick="updateRentalStatus(<?php echo $rental['id']; ?>, 'cancelled')">
+                                                        <i class='bx bx-x'></i>
+                                                    </button>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </tbody>
                             </table>
                         </div>
@@ -230,8 +257,68 @@ $totalRevenue = $db->query("SELECT SUM(total_price) as total FROM rentals WHERE 
         </main>
     </div>
 
+    <!-- Kiralama Detay Modalı -->
+    <div class="modal fade" id="rentalModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Kiralama Detayları</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Detaylar AJAX ile yüklenecek -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
     <script src="../assets/js/admin.js"></script>
+    <script>
+        // Kiralama detaylarını görüntüle
+        function viewRental(id) {
+            fetch(`admin/api/rental-detail.php?id=${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.querySelector('#rentalModal .modal-body').innerHTML = data.html;
+                        new bootstrap.Modal(document.getElementById('rentalModal')).show();
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Bir hata oluştu. Lütfen tekrar deneyin.');
+                });
+        }
+        
+        // Kiralama durumunu güncelle
+        function updateRentalStatus(id, status) {
+            const statusText = status === 'completed' ? 'tamamlamak' : 'iptal etmek';
+            if (confirm(`Kiralamayı ${statusText} istediğinize emin misiniz?`)) {
+                fetch('../api/update-rental-status.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ rental_id: id, status: status })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Bir hata oluştu. Lütfen tekrar deneyin.');
+                });
+            }
+        }
+    </script>
 </body>
 </html> 

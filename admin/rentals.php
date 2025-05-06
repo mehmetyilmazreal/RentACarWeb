@@ -150,12 +150,31 @@ $rentals = query($sql, $params)->fetchAll();
                                 <tbody>
                                     <?php if (count($rentals) > 0): ?>
                                         <?php foreach ($rentals as $rental): 
-                                            $statusClass = [
-                                                'pending' => 'warning',
-                                                'active' => 'success',
-                                                'completed' => 'info',
-                                                'cancelled' => 'danger'
-                                            ][$rental['status']];
+                                            $statusMap = [
+                                                'pending' => [
+                                                    'class' => 'warning',
+                                                    'text' => 'Beklemede'
+                                                ],
+                                                'confirmed' => [
+                                                    'class' => 'success',
+                                                    'text' => 'Onaylandı'
+                                                ],
+                                                'completed' => [
+                                                    'class' => 'info',
+                                                    'text' => 'Tamamlandı'
+                                                ],
+                                                'cancelled' => [
+                                                    'class' => 'danger',
+                                                    'text' => 'İptal Edildi'
+                                                ]
+                                            ];
+
+                                            $currentStatus = isset($rental['status']) && array_key_exists($rental['status'], $statusMap) 
+                                                ? $rental['status'] 
+                                                : 'pending';
+                                            
+                                            $statusClass = $statusMap[$currentStatus]['class'];
+                                            $statusText = $statusMap[$currentStatus]['text'];
                                         ?>
                                         <tr>
                                             <td>#<?php echo $rental['id']; ?></td>
@@ -172,24 +191,24 @@ $rentals = query($sql, $params)->fetchAll();
                                             <td>₺<?php echo number_format($rental['total_price'], 2); ?></td>
                                             <td>
                                                 <span class="badge bg-<?php echo $statusClass; ?>">
-                                                    <?php echo ucfirst($rental['status']); ?>
+                                                    <?php echo $statusText; ?>
                                                 </span>
                                             </td>
                                             <td>
                                                 <div class="btn-group">
-                                                    <button type="button" class="btn btn-sm btn-info" 
-                                                            onclick="viewRental(<?php echo $rental['id']; ?>)">
+                                                    <a href="rental-details.php?id=<?php echo $rental['id']; ?>" 
+                                                       class="btn btn-sm btn-info">
                                                         <i class='bx bxs-detail'></i>
-                                                    </button>
-                                                    <?php if ($rental['status'] === 'active'): ?>
+                                                    </a>
+                                                    <?php if ($currentStatus === 'confirmed'): ?>
                                                     <button type="button" class="btn btn-sm btn-success" 
-                                                            onclick="completeRental(<?php echo $rental['id']; ?>)">
+                                                            onclick="updateRentalStatus(<?php echo $rental['id']; ?>, 'completed')">
                                                         <i class='bx bx-check'></i>
                                                     </button>
                                                     <?php endif; ?>
-                                                    <?php if (in_array($rental['status'], ['pending', 'active'])): ?>
+                                                    <?php if (in_array($currentStatus, ['pending', 'confirmed'])): ?>
                                                     <button type="button" class="btn btn-sm btn-danger" 
-                                                            onclick="cancelRental(<?php echo $rental['id']; ?>)">
+                                                            onclick="updateRentalStatus(<?php echo $rental['id']; ?>, 'cancelled')">
                                                         <i class='bx bx-x'></i>
                                                     </button>
                                                     <?php endif; ?>
@@ -249,18 +268,23 @@ $rentals = query($sql, $params)->fetchAll();
                     } else {
                         alert(data.message);
                     }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Bir hata oluştu. Lütfen tekrar deneyin.');
                 });
         }
         
-        // Kiralamayı tamamla
-        function completeRental(id) {
-            if (confirm('Kiralamayı tamamlamak istediğinize emin misiniz?')) {
-                fetch('api/complete-rental.php', {
+        // Kiralama durumunu güncelle
+        function updateRentalStatus(id, status) {
+            const statusText = status === 'completed' ? 'tamamlamak' : 'iptal etmek';
+            if (confirm(`Kiralamayı ${statusText} istediğinize emin misiniz?`)) {
+                fetch('../api/update-rental-status.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ rental_id: id })
+                    body: JSON.stringify({ rental_id: id, status: status })
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -269,27 +293,10 @@ $rentals = query($sql, $params)->fetchAll();
                     } else {
                         alert(data.message);
                     }
-                });
-            }
-        }
-        
-        // Kiralamayı iptal et
-        function cancelRental(id) {
-            if (confirm('Kiralamayı iptal etmek istediğinize emin misiniz?')) {
-                fetch('api/cancel-rental.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ rental_id: id })
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert(data.message);
-                    }
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Bir hata oluştu. Lütfen tekrar deneyin.');
                 });
             }
         }
