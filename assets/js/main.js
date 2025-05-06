@@ -231,20 +231,28 @@ if (document.getElementById('registerForm')) {
             return;
         }
 
-        // TC Kimlik No kontrolü (sadece bireysel kayıt için)
-        if (document.getElementById('individual').checked) {
-            const tcNo = this.querySelector('input[name="tcNo"]');
-            if (!validateTCKN(tcNo.value)) {
-                tcNo.setCustomValidity('Geçerli bir TC Kimlik No giriniz');
-                this.classList.add('was-validated');
-                return;
-            }
-        }
-
         // Form verilerini topla
         const formData = new FormData(this);
         const registerType = document.querySelector('input[name="registerType"]:checked').value;
-        formData.append('registerType', registerType);
+        
+        // Ad ve soyadı birleştir
+        if (registerType === 'individual') {
+            const firstName = formData.get('firstName');
+            const lastName = formData.get('lastName');
+            formData.set('name', `${firstName} ${lastName}`);
+        } else {
+            const authorizedName = formData.get('authorizedName');
+            const authorizedSurname = formData.get('authorizedSurname');
+            formData.set('name', `${authorizedName} ${authorizedSurname}`);
+        }
+
+        // Kullanıcı tipini ayarla
+        formData.set('user_type', registerType);
+
+        // TC No'yu ayarla
+        if (registerType === 'individual') {
+            formData.set('tc_no', formData.get('tcNo'));
+        }
 
         // API'ye gönder
         submitRegistration(formData);
@@ -277,12 +285,38 @@ if (document.getElementById('registerForm')) {
     // Kayıt işlemini gönder
     async function submitRegistration(formData) {
         try {
-            const response = await fetch('api/register.php', {
-                method: 'POST',
-                body: formData
+            // FormData'yı JSON'a dönüştür
+            const jsonData = {};
+            formData.forEach((value, key) => {
+                // Boş değerleri kontrol et
+                if (value !== null && value !== undefined && value !== '') {
+                    jsonData[key] = value;
+                }
             });
 
-            const data = await response.json();
+            // Debug için konsola yazdır
+            console.log('Gönderilen veri:', jsonData);
+
+            const response = await fetch('api/register.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(jsonData)
+            });
+
+            // Debug için yanıtı kontrol et
+            const responseText = await response.text();
+            console.log('Sunucu yanıtı:', responseText);
+
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (e) {
+                console.error('JSON parse hatası:', e);
+                throw new Error('Sunucu yanıtı geçersiz JSON formatında');
+            }
 
             if (data.success) {
                 // Başarılı kayıt
@@ -293,8 +327,10 @@ if (document.getElementById('registerForm')) {
             } else {
                 // Hata durumu
                 showAlert('danger', data.message || 'Kayıt işlemi sırasında bir hata oluştu.');
+                console.error('Sunucu hatası:', data);
             }
         } catch (error) {
+            console.error('İşlem hatası:', error);
             showAlert('danger', 'Bir hata oluştu. Lütfen daha sonra tekrar deneyiniz.');
         }
     }
