@@ -425,55 +425,29 @@ $cars = $db->query("
         });
 
         // Delete Car Function
-        function deleteCar(carId) {
-            if (!confirm('Bu aracı silmek istediğinizden emin misiniz?')) {
-                return;
+        function deleteCar(id) {
+            if (confirm('Bu aracı silmek istediğinizden emin misiniz?')) {
+                fetch('../api/delete-car.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ id: id })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert(data.error || 'Bir hata oluştu');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Bir hata oluştu');
+                });
             }
-
-            // FormData oluştur
-            const formData = new FormData();
-            formData.append('car_id', carId);
-
-            // Silme butonunu devre dışı bırak
-            const deleteBtn = event.target.closest('.btn-danger');
-            const originalContent = deleteBtn.innerHTML;
-            deleteBtn.disabled = true;
-            deleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
-
-            fetch('api/delete-car.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showAlert('success', data.message);
-                    // Silinen aracın satırını kaldır
-                    const row = deleteBtn.closest('tr');
-                    row.style.backgroundColor = '#ffebee';
-                    row.style.transition = 'background-color 0.5s';
-                    setTimeout(() => {
-                        row.remove();
-                    }, 500);
-                } else {
-                    showAlert('error', data.message || 'Bir hata oluştu');
-                    // Butonu eski haline getir
-                    deleteBtn.disabled = false;
-                    deleteBtn.innerHTML = originalContent;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('error', 'Bir hata oluştu. Lütfen daha sonra tekrar deneyiniz.');
-                // Butonu eski haline getir
-                deleteBtn.disabled = false;
-                deleteBtn.innerHTML = originalContent;
-            });
         }
 
         // Öne çıkan araç durumunu güncelle
@@ -506,6 +480,16 @@ $cars = $db->query("
                 });
             });
         });
+
+        // Araç Detaylarını Görüntüleme Fonksiyonu
+        function viewCar(id) {
+            window.location.href = `car-details.php?id=${id}`;
+        }
+
+        // Araç Düzenleme Sayfasına Yönlendirme Fonksiyonu
+        function editCar(id) {
+            window.location.href = `edit-car.php?id=${id}`;
+        }
     </script>
 </body>
 </html> 

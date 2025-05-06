@@ -1,57 +1,46 @@
 <?php
+session_start();
 require_once '../../config/db.php';
-require_once '../includes/auth_check.php';
+require_once '../auth_check.php';
 
 header('Content-Type: application/json');
 
-try {
-    // Yetki kontrolü
-    if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'corporate') {
-        throw new Exception('Bu işlem için yetkiniz yok.');
-    }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['error' => 'Method not allowed']);
+    exit();
+}
 
-    // Araç ID'sini al
-    $car_id = $_POST['car_id'] ?? null;
-    if (!$car_id) {
-        throw new Exception('Araç ID\'si gerekli.');
-    }
+$data = json_decode(file_get_contents('php://input'), true);
 
-    // Önce araç bilgilerini al (resim silmek için)
-    $stmt = $db->prepare("SELECT image FROM cars WHERE id = ?");
-    $stmt->execute([$car_id]);
-    $car = $stmt->fetch();
-
-    if (!$car) {
-        throw new Exception('Araç bulunamadı.');
-    }
-
-    // Veritabanından araç özelliklerini sil
-    $stmt = $db->prepare("DELETE FROM car_features WHERE car_id = ?");
-    $stmt->execute([$car_id]);
-
-    // Veritabanından araç donanımını sil
-    $stmt = $db->prepare("DELETE FROM car_equipment WHERE car_id = ?");
-    $stmt->execute([$car_id]);
-
-    // Veritabanından aracı sil
-    $stmt = $db->prepare("DELETE FROM cars WHERE id = ?");
-    $stmt->execute([$car_id]);
-
-    // Araç resmini sil
-    $image_path = '../../assets/images/cars/' . $car['image'];
-    if (file_exists($image_path)) {
-        unlink($image_path);
-    }
-
-    echo json_encode([
-        'success' => true,
-        'message' => 'Araç başarıyla silindi.'
-    ]);
-
-} catch (Exception $e) {
+if (!isset($data['id'])) {
     http_response_code(400);
-    echo json_encode([
-        'success' => false,
-        'message' => $e->getMessage()
-    ]);
+    echo json_encode(['error' => 'Car ID is required']);
+    exit();
+}
+
+$car_id = $data['id'];
+
+// Önce araç resmini sil
+$sql = "SELECT image FROM cars WHERE id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $car_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$car = $result->fetch_assoc();
+
+if ($car && $car['image'] && file_exists("../../" . $car['image'])) {
+    unlink("../../" . $car['image']);
+}
+
+// Sonra araç kaydını sil
+$sql = "DELETE FROM cars WHERE id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $car_id);
+
+if ($stmt->execute()) {
+    echo json_encode(['success' => true, 'message' => 'Araç başarıyla silindi']);
+} else {
+    http_response_code(500);
+    echo json_encode(['error' => 'Araç silinirken bir hata oluştu']);
 } 
