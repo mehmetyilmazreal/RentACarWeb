@@ -8,63 +8,59 @@ require_once '../config/db.php';
 // JSON yanıt için header ayarla
 header('Content-Type: application/json');
 
-// Kullanıcı giriş yapmamışsa hata döndür
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Oturum açmanız gerekiyor.'
-    ]);
-    exit;
-}
-
-// POST verilerini al
-$data = json_decode(file_get_contents('php://input'), true);
-$rental_id = $data['rental_id'] ?? 0;
-
-if (!$rental_id) {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Geçersiz kiralama ID.'
-    ]);
-    exit;
-}
-
 try {
-    // Kiralamayı kontrol et
-    $stmt = query("SELECT * FROM rentals WHERE id = ? AND user_id = ?", [$rental_id, $_SESSION['user_id']]);
+    // Oturum kontrolü
+    if (!isset($_SESSION['user_id'])) {
+        throw new Exception('Bu işlem için giriş yapmanız gerekiyor.');
+    }
+
+    // JSON verisini al
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (!isset($data['rental_id'])) {
+        throw new Exception('Geçersiz veri.');
+    }
+
+    // Rezervasyonu kontrol et
+    $stmt = $db->prepare("
+        SELECT r.*, p.status as payment_status, p.amount 
+        FROM rentals r
+        LEFT JOIN payments p ON r.id = p.rental_id
+        WHERE r.id = ? AND r.user_id = ? AND r.status = 'pending'
+    ");
+    $stmt->execute([$data['rental_id'], $_SESSION['user_id']]);
     $rental = $stmt->fetch();
-    
+
     if (!$rental) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Kiralama bulunamadı.'
-        ]);
-        exit;
+        throw new Exception('Rezervasyon bulunamadı veya iptal edilemez.');
     }
-    
-    // Sadece aktif kiralamalar iptal edilebilir
-    if ($rental['status'] !== 'active') {
+
+    // Transaction başlat
+    $db->beginTransaction();
+
+    try {
+        // Rezervasyonu iptal et
+        $stmt = $db->prepare("UPDATE rentals SET status = 'cancelled' WHERE id = ?");
+        $stmt->execute([$data['rental_id']]);
+
+        // Transaction'ı tamamla
+        $db->commit();
+
         echo json_encode([
-            'success' => false,
-            'message' => 'Sadece aktif kiralamalar iptal edilebilir.'
+            'success' => true,
+            'message' => 'Rezervasyonunuz başarıyla iptal edildi.'
         ]);
-        exit;
+
+    } catch (Exception $e) {
+        // Hata durumunda transaction'ı geri al
+        $db->rollBack();
+        throw $e;
     }
-    
-    // Kiralamayı iptal et
-    query("UPDATE rentals SET status = 'cancelled' WHERE id = ?", [$rental_id]);
-    
-    // Aracın durumunu güncelle
-    query("UPDATE cars SET status = 'available' WHERE id = ?", [$rental['car_id']]);
-    
-    echo json_encode([
-        'success' => true,
-        'message' => 'Kiralama başarıyla iptal edildi.'
-    ]);
+
 } catch (Exception $e) {
-    error_log('Kiralama iptal hatası: ' . $e->getMessage());
+    http_response_code(400);
     echo json_encode([
         'success' => false,
-        'message' => 'Bir hata oluştu. Lütfen daha sonra tekrar deneyiniz.'
+        'message' => $e->getMessage()
     ]);
 } 
