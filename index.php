@@ -27,7 +27,7 @@ $featured_cars = $db->query("
     <style>
         df-messenger {
             position: fixed;
-            bottom: 20px;
+            bottom: 30px;
             left: 20px;
             z-index: 1000;
         }
